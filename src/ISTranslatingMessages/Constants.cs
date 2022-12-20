@@ -1,5 +1,7 @@
 ﻿using Spectre.Console;
 
+// ReSharper disable MemberCanBePrivate.Global
+
 namespace ISTranslatingMessages;
 
 public static class Constants
@@ -9,11 +11,11 @@ public static class Constants
         /// <summary>
         /// *Версия программы* (v.1.0)
         /// </summary>
-        public const string Version = "v.1.0";
+        public const string Version = "v.1.1";
         /// <summary>
         /// *Версия программы с датой* (v.1.0 (02.09.2022))
         /// </summary>
-        public const string VersionWithDate = $"{Version} (18.12.2022)";
+        public const string VersionWithDate = $"{Version} (20.12.2022)";
         /// <summary>
         /// *Название программы* (*Версия* (*дата*)) by *Разработчик*
         /// </summary>

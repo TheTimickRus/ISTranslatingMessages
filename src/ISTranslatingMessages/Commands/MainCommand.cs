@@ -34,12 +34,30 @@ public class MainCommand: AsyncCommand<MainCommand.MainCommandSettings>
         string filename;
         string sourceLanguage;
         string targetLanguage;
+        ITranslator translator = new AggregateTranslator();
         
         if (settings.File is null or "" || settings.SourceLanguage is null or "" || settings.TargetLanguage is null or "")
         {
             filename = AnsiConsole.Ask<string>($"[bold {Constants.Colors.MainColor}]Name of the file to translate:[/]");
             sourceLanguage = AnsiConsole.Ask<string>($"[bold {Constants.Colors.MainColor}]Source language (as in the file):[/]");
-            targetLanguage = AnsiConsole.Ask<string>($"[bold {Constants.Colors.MainColor}]Target language (as in the file):[/]"); 
+            targetLanguage = AnsiConsole.Ask<string>($"[bold {Constants.Colors.MainColor}]Target language (as in the file):[/]");
+            
+            var translatorStr = AnsiConsole.Prompt(
+                new SelectionPrompt<string>()
+                    .Title($"[bold {Constants.Colors.MainColor}]Select translator[/]")
+                    .AddChoices("Google v1", "Google v2", "Microsoft", "Yandex", "Bing")
+                    .HighlightStyle(new Style(Constants.Colors.MainColor))
+            );
+
+            translator = translatorStr switch
+            {
+                "Google v1" => new GoogleTranslator(),
+                "Google v2" => new GoogleTranslator2(),
+                "Microsoft" => new MicrosoftTranslator(),
+                "Yandex" => new YandexTranslator(),
+                "Bing" => new BingTranslator(),
+                _ => translator
+            };
         }
         else
         {
@@ -68,36 +86,39 @@ public class MainCommand: AsyncCommand<MainCommand.MainCommandSettings>
         };
         var data = parser.ReadFile(filename);
         
-        var translator = new AggregateTranslator();
-
         var mSection = data.Sections.GetSectionData("Messages");
-        foreach (var key in mSection.Keys.ToList().Where(key => key.KeyName.Contains($"{sourceLanguage}.")))
-        {
-            var translationMessage = await translator.TranslateAsync(key.Value, targetLanguage);
-            
-            mSection.Keys.AddKey(
-                key.KeyName.Replace($"{sourceLanguage}.", $"{targetLanguage}."), 
-                translationMessage.Translation
-            );
+        if (mSection is not null) {
+            foreach (var key in mSection.Keys.ToList().Where(key => key.KeyName.Contains($"{sourceLanguage}.")))
+            {
+                var translationMessage = await translator.TranslateAsync(key.Value, targetLanguage, sourceLanguage);
 
-            AnsiConsole.MarkupLine($"[{Constants.Colors.MainColor}]{key.KeyName} = {key.Value}[/]");
-            AnsiConsole.MarkupLine($"[{Constants.Colors.SecondColor}]{key.KeyName.Replace($"{sourceLanguage}.", $"{targetLanguage}.")} = {translationMessage.Translation}[/]\n");
+                mSection.Keys.AddKey(
+                    key.KeyName.Replace($"{sourceLanguage}.", $"{targetLanguage}."),
+                    translationMessage.Translation
+                );
+                
+                AnsiConsole.MarkupLine($"[{Constants.Colors.MainColor}]{key.KeyName} = {key.Value.Replace("[", "[[").Replace("]", "]]")}[/]");
+                AnsiConsole.MarkupLine($"[{Constants.Colors.SecondColor}]{key.KeyName.Replace($"{sourceLanguage}.", $"{targetLanguage}.")} = {translationMessage.Translation.Replace("[", "[[").Replace("]", "]]")}[/]\n");
+            }
         }
-        
+
         var cmSection = data.Sections.GetSectionData("CustomMessages");
-        foreach (var key in cmSection.Keys.ToList().Where(key => key.KeyName.Contains($"{sourceLanguage}.")))
+        if (cmSection is not null)
         {
-            var translationMessage = await translator.TranslateAsync(key.Value, targetLanguage);
-            
-            cmSection.Keys.AddKey(
-                key.KeyName.Replace($"{sourceLanguage}.", $"{targetLanguage}."), 
-                translationMessage.Translation
-            );
+            foreach (var key in cmSection.Keys.ToList().Where(key => key.KeyName.Contains($"{sourceLanguage}.")))
+            {
+                var translationMessage = await translator.TranslateAsync(key.Value, targetLanguage, sourceLanguage);
 
-            AnsiConsole.MarkupLine($"[{Constants.Colors.MainColor}]{key.KeyName} = {key.Value}[/]");
-            AnsiConsole.MarkupLine($"[{Constants.Colors.SecondColor}]{key.KeyName.Replace($"{sourceLanguage}.", $"{targetLanguage}.")} = {translationMessage.Translation}[/]\n");
+                cmSection.Keys.AddKey(
+                    key.KeyName.Replace($"{sourceLanguage}.", $"{targetLanguage}."),
+                    translationMessage.Translation
+                );
+
+                AnsiConsole.MarkupLine($"[{Constants.Colors.MainColor}]{key.KeyName} = {key.Value.Replace("[", "[[").Replace("]", "]]")}[/]");
+                AnsiConsole.MarkupLine($"[{Constants.Colors.SecondColor}]{key.KeyName.Replace($"{sourceLanguage}.", $"{targetLanguage}.")} = {translationMessage.Translation.Replace("[", "[[").Replace("]", "]]")}[/]\n");
+            }
         }
-        
+
         /* Пишем файл */
         parser.WriteFile($"{Path.GetFileNameWithoutExtension(filename)}_Translated{Path.GetExtension(filename)}", data);
         

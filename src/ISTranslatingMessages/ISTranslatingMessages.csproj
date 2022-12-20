@@ -7,9 +7,9 @@
         
         <Company>Timick</Company>
         <Copyright>Timick</Copyright>
-        <AssemblyVersion>1.0.0.0</AssemblyVersion>
-        <FileVersion>1.0.0.0</FileVersion>
-        <ProductVersion>1.0.0.0</ProductVersion>
+        <AssemblyVersion>1.1.0.0</AssemblyVersion>
+        <FileVersion>1.1.0.0</FileVersion>
+        <ProductVersion>1.1.0.0</ProductVersion>
         
         <TargetFrameworks>net6.0;net7.0</TargetFrameworks>
     </PropertyGroup>

@@ -15,7 +15,7 @@ app.Configure(conf =>
     conf.Settings.ApplicationVersion = Constants.Titles.VersionWithDate;
     conf.Settings.ExceptionHandler += ex => 
     {
-        AnsiConsole.Clear();
+        //AnsiConsole.Clear();
         AnsiConsoleLib.ShowFiglet(Constants.Titles.VeryShortTitle, Justify.Center, Constants.Colors.ErrorColor);
         AnsiConsoleLib.ShowRule(Constants.Titles.FullTitle, Justify.Right, Constants.Colors.ErrorColor);
         
