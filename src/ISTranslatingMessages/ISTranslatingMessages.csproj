@@ -7,9 +7,9 @@
         
         <Company>Timick</Company>
         <Copyright>Timick</Copyright>
-        <AssemblyVersion>1.1.0.0</AssemblyVersion>
-        <FileVersion>1.1.0.0</FileVersion>
-        <ProductVersion>1.1.0.0</ProductVersion>
+        <AssemblyVersion>1.2.0.0</AssemblyVersion>
+        <FileVersion>1.2.0.0</FileVersion>
+        <ProductVersion>1.2.0.0</ProductVersion>
         
         <TargetFrameworks>net6.0;net7.0</TargetFrameworks>
     </PropertyGroup>
@@ -18,6 +18,10 @@
       <PackageReference Include="GTranslate" Version="2.1.1" />
       <PackageReference Include="IniFileParserStandard" Version="1.0.1" />
       <PackageReference Include="Spectre.Console" Version="0.45.1-preview.0.47" />
+      <PackageReference Include="Spectre.Console.Analyzer" Version="0.45.1-preview.0.47">
+        <PrivateAssets>all</PrivateAssets>
+        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      </PackageReference>
       <PackageReference Include="Spectre.Console.Cli" Version="0.45.1-preview.0.47" />
     </ItemGroup>
 
