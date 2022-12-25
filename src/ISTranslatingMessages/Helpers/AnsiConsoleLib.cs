@@ -27,6 +27,6 @@ public static class AnsiConsoleLib
             AnsiConsole.Console.Clear();
         
         ShowFiglet(Constants.Titles.VeryShortTitle, Justify.Center, Constants.Colors.MainColor);
-        ShowRule(Constants.Titles.FullTitle, Justify.Right, Constants.Colors.MainColor);
+        ShowRule(Constants.Titles.FullTitle, Justify.Right, Constants.Colors.SecondColor);
     }
 }

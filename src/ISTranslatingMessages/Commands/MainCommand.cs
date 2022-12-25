@@ -1,6 +1,7 @@
-﻿using System.ComponentModel;
-using GTranslate.Translators;
+﻿using GTranslate.Translators;
+using ISTranslatingMessages.Extensions;
 using ISTranslatingMessages.Helpers;
+using ISTranslatingMessages.Models;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -10,68 +11,64 @@ using Spectre.Console.Cli;
 
 namespace ISTranslatingMessages.Commands;
 
-public class MainCommand: AsyncCommand<MainCommand.MainCommandSettings>
+public class MainCommand: AsyncCommand<MainCommandSettings>
 {
-    public class MainCommandSettings : CommandSettings
-    {
-        [Description("Name of the file to translate")]
-        [CommandOption("-f")]
-        public string? File { get; init; }
-        
-        [Description("Source language (as in the file)")]
-        [CommandOption("-s")]
-        public string? SourceLanguage { get; init; }
-        
-        [Description("Target language (as in the file)")]
-        [CommandOption("-t")]
-        public string? TargetLanguage { get; init; }
-    }
+    #region Private Props
+
+    private string _filename = "";
+    private string _sLang = "";
+    private string _tLang = "";
+    private ITranslator _translator = new AggregateTranslator();
+
+    #endregion
+
+    #region Execute
 
     public override async Task<int> ExecuteAsync(CommandContext context, MainCommandSettings settings)
     {
+        /* Отображаем шапку */
         AnsiConsoleLib.ShowHeader();
-
-        string filename;
-        string sourceLanguage;
-        string targetLanguage;
-        ITranslator translator = new AggregateTranslator();
         
-        if (settings.File is null or "" || settings.SourceLanguage is null or "" || settings.TargetLanguage is null or "")
-        {
-            filename = AnsiConsole.Ask<string>($"[bold {Constants.Colors.MainColor}]Name of the file to translate:[/]");
-            sourceLanguage = AnsiConsole.Ask<string>($"[bold {Constants.Colors.MainColor}]Source language (as in the file):[/]");
-            targetLanguage = AnsiConsole.Ask<string>($"[bold {Constants.Colors.MainColor}]Target language (as in the file):[/]");
-            
-            var translatorStr = AnsiConsole.Prompt(
-                new SelectionPrompt<string>()
-                    .Title($"[bold {Constants.Colors.MainColor}]Select translator[/]")
-                    .AddChoices("Google v1", "Google v2", "Microsoft", "Yandex", "Bing")
-                    .HighlightStyle(new Style(Constants.Colors.MainColor))
-            );
-
-            translator = translatorStr switch
-            {
-                "Google v1" => new GoogleTranslator(),
-                "Google v2" => new GoogleTranslator2(),
-                "Microsoft" => new MicrosoftTranslator(),
-                "Yandex" => new YandexTranslator(),
-                "Bing" => new BingTranslator(),
-                _ => translator
-            };
-        }
-        else
-        {
-            filename = settings.File;
-            sourceLanguage = settings.SourceLanguage;
-            targetLanguage = settings.TargetLanguage;
-            
-            AnsiConsole.MarkupLine($"[{Constants.Colors.MainColor}]File = {filename}\nSLang = {sourceLanguage}\nTLang = {targetLanguage}[/]");
-        }
+        /* Получаем параметры */
+        var (filename, sLang, tLang, translator) = GetParams(settings);
+        _filename = filename;
+        _sLang = sLang;
+        _tLang = tLang;
+        _translator = translator;
         
+        /* Переводим файл */
+        await AnsiConsole.Status()
+            .Spinner(Spinner.Known.Christmas)
+            .AutoRefresh(true)
+            .StartAsync("Please wait...", Translation);
+        
+        /* Завершение работы */
         AnsiConsole.WriteLine();
-        AnsiConsoleLib.ShowRule("File translation, please wait...", Justify.Right, Constants.Colors.MainColor);
+        AnsiConsoleLib.ShowRule(
+            "The work of the program is completed! Press any button to exit",
+            Justify.Center,
+            Constants.Colors.SuccessColor
+        );
+        AnsiConsole.Console.Input.ReadKey(true);
+        return 0;
+    }
+
+    #endregion
+
+    #region Private Methods
+    
+    private async Task Translation(StatusContext arg)
+    {
+        // ReSharper disable once PossiblyImpureMethodCallOnReadonlyVariable
+        var color = Constants.Colors.SecondColor.ToHex();
         
-        // Читаем INI файл
+        /* Читаем файл */
+        arg.Status($"[bold #{color}]Reading file...[/]");
+        await Task.Delay(1000);
+
+        if (File.Exists(_filename) is false)
+            throw new FileNotFoundException();
+        
         var parser = new IniFileParser.IniFileParser
         {
             Parser =
@@ -84,51 +81,156 @@ public class MainCommand: AsyncCommand<MainCommand.MainCommandSettings>
                 }
             }
         };
-        var data = parser.ReadFile(filename);
+        var data = parser.ReadFile(_filename);
         
+        /* Переводим секцию Messages */
         var mSection = data.Sections.GetSectionData("Messages");
-        if (mSection is not null) {
-            foreach (var key in mSection.Keys.ToList().Where(key => key.KeyName.Contains($"{sourceLanguage}.")))
-            {
-                var translationMessage = await translator.TranslateAsync(key.Value, targetLanguage, sourceLanguage);
+        if (mSection is not null)
+        {
+            var preparedKeys = mSection.Keys
+                .Where(key => key.KeyName.Contains($"{_sLang}."))
+                .Select((x, i) => new { Data = x, Index = i })
+                .ToList();
 
-                mSection.Keys.AddKey(
-                    key.KeyName.Replace($"{sourceLanguage}.", $"{targetLanguage}."),
-                    translationMessage.Translation
-                );
+            foreach (var key in preparedKeys)
+            {
+                if (key.Data.Value.IsNotEmpty())
+                {
+                    var translationMessage = await _translator.TranslateAsync(key.Data.Value, _tLang, _sLang);
+                    mSection.Keys.AddKey(
+                        key.Data.KeyName.Replace($"{_sLang}.", $"{_tLang}."),
+                        translationMessage.Translation
+                    );
+                }
+                else
+                {
+                    mSection.Keys.AddKey(
+                        key.Data.KeyName.Replace($"{_sLang}.", $"{_tLang}."),
+                        ""
+                    );
+                }
                 
-                AnsiConsole.MarkupLine($"[{Constants.Colors.MainColor}]{key.KeyName} = {key.Value.Replace("[", "[[").Replace("]", "]]")}[/]");
-                AnsiConsole.MarkupLine($"[{Constants.Colors.SecondColor}]{key.KeyName.Replace($"{sourceLanguage}.", $"{targetLanguage}.")} = {translationMessage.Translation.Replace("[", "[[").Replace("]", "]]")}[/]\n");
+                arg.Status($"[bold #{color}]Translating [[Messages]] section... ({key.Index.ToPercent(preparedKeys.Count)})[/]");
             }
         }
-
+        
+        /* Переводим секцию CustomMessages */
         var cmSection = data.Sections.GetSectionData("CustomMessages");
         if (cmSection is not null)
         {
-            foreach (var key in cmSection.Keys.ToList().Where(key => key.KeyName.Contains($"{sourceLanguage}.")))
+            var preparedKeys = cmSection.Keys
+                .Where(key => key.KeyName.Contains($"{_sLang}."))
+                .Select((x, i) => new { Data = x, Index = i })
+                .ToList();
+            
+            foreach (var key in preparedKeys)
             {
-                var translationMessage = await translator.TranslateAsync(key.Value, targetLanguage, sourceLanguage);
-
-                cmSection.Keys.AddKey(
-                    key.KeyName.Replace($"{sourceLanguage}.", $"{targetLanguage}."),
-                    translationMessage.Translation
-                );
-
-                AnsiConsole.MarkupLine($"[{Constants.Colors.MainColor}]{key.KeyName} = {key.Value.Replace("[", "[[").Replace("]", "]]")}[/]");
-                AnsiConsole.MarkupLine($"[{Constants.Colors.SecondColor}]{key.KeyName.Replace($"{sourceLanguage}.", $"{targetLanguage}.")} = {translationMessage.Translation.Replace("[", "[[").Replace("]", "]]")}[/]\n");
+                if (key.Data.Value.IsNotEmpty())
+                {
+                    var translationMessage = await _translator.TranslateAsync(key.Data.Value, _tLang, _sLang);
+                    cmSection.Keys.AddKey(
+                        key.Data.KeyName.Replace($"{_sLang}.", $"{_tLang}."),
+                        translationMessage.Translation
+                    );
+                }
+                else
+                {
+                    cmSection.Keys.AddKey(
+                        key.Data.KeyName.Replace($"{_sLang}.", $"{_tLang}."),
+                        ""
+                    );
+                }
+                
+                arg.Status($"[bold #{color}]Translating [[CustomMessages]] section... ({key.Index.ToPercent(preparedKeys.Count)})[/]");
             }
         }
 
-        /* Пишем файл */
-        parser.WriteFile($"{Path.GetFileNameWithoutExtension(filename)}_Translated{Path.GetExtension(filename)}", data);
+        /* Сохраняем файл */
+        arg.Status($"[bold #{color}]Saving file...[/]");
+        await Task.Delay(1000);
         
-        /* Завершение работы */
-        AnsiConsoleLib.ShowRule(
-            "The work of the program is completed! Press any button to exit",
-            Justify.Center,
-            Constants.Colors.SuccessColor
+        parser.WriteFile(
+            $"{Path.GetFileNameWithoutExtension(_filename)}_translated{Path.GetExtension(_filename)}", 
+            data
         );
-        AnsiConsole.Console.Input.ReadKey(true);
-        return 0;
     }
+    
+    #endregion
+
+    #region Private Static Methods
+
+    private static (string filename, string sLang, string tLang, ITranslator translator) GetParams(MainCommandSettings settings)
+    {
+        string filename;
+        string sourceLanguage;
+        string targetLanguage;
+        ITranslator translator;
+
+        // ReSharper disable once PossiblyImpureMethodCallOnReadonlyVariable
+        var color = Constants.Colors.MainColor.ToHex();
+        
+        switch (settings.IsCommandLine())
+        {
+            case true:
+                filename = settings.Filename;
+                sourceLanguage = settings.SourceLanguage;
+                targetLanguage = settings.TargetLanguage;
+                translator = GetTranslator(settings.Translator);
+            
+                AnsiConsole.MarkupLine(
+                    $"[bold #{color}]" +
+                
+                    $"File = {filename}\n" +
+                    $"SLang = {sourceLanguage}\n" +
+                    $"TLang = {targetLanguage}\n" +
+                    $"Translator = {translator.ToString()?.Replace("Name: ", "")}" +
+                
+                    "[/]"
+                );
+                break;
+            
+            case false:
+                filename = AnsiConsole.Prompt(
+                    new TextPrompt<string>($"[bold #{color}]Name of the file to translate:[/]")
+                        .PromptStyle(new Style(Constants.Colors.SecondColor))
+                );
+                sourceLanguage = AnsiConsole.Prompt(
+                    new TextPrompt<string>($"[bold #{color}]Source language (as in the file):[/]")
+                        .PromptStyle(new Style(Constants.Colors.SecondColor))
+                );
+                targetLanguage = AnsiConsole.Prompt(
+                    new TextPrompt<string>($"[bold #{color}]Target language (as in the file):[/]")
+                        .PromptStyle(new Style(Constants.Colors.SecondColor))
+                );
+
+                var translatorResult = Enum.Parse<Translator>(
+                    AnsiConsole.Prompt(
+                        new SelectionPrompt<string>()
+                            .Title($"[bold #{color}]Select translator:[/]")
+                            .AddChoices("GoogleV1", "GoogleV2", "Microsoft", "Yandex", "Bing")
+                            .HighlightStyle(new Style(Constants.Colors.SecondColor))
+                    )
+                );
+            
+                translator = GetTranslator(translatorResult);
+                break;
+        }
+        
+        return (filename, sourceLanguage, targetLanguage, translator);
+    }
+    
+    private static ITranslator GetTranslator(Translator translator)
+    {
+        return translator switch
+        {
+            Translator.GoogleV1 => new GoogleTranslator(),
+            Translator.GoogleV2 => new GoogleTranslator2(),
+            Translator.Microsoft => new MicrosoftTranslator(),
+            Translator.Yandex => new YandexTranslator(),
+            Translator.Bing => new BingTranslator(),
+            _ => new AggregateTranslator()
+        };
+    }
+
+    #endregion
 }
