@@ -15,14 +15,14 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="GTranslate" Version="2.1.1" />
+      <PackageReference Include="GTranslate" Version="2.1.6" />
       <PackageReference Include="IniFileParserStandard" Version="1.0.1" />
-      <PackageReference Include="Spectre.Console" Version="0.45.1-preview.0.47" />
-      <PackageReference Include="Spectre.Console.Analyzer" Version="0.45.1-preview.0.47">
+      <PackageReference Include="Spectre.Console" Version="0.46.1-preview.0.20" />
+      <PackageReference Include="Spectre.Console.Analyzer" Version="0.46.1-preview.0.20">
         <PrivateAssets>all</PrivateAssets>
         <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       </PackageReference>
-      <PackageReference Include="Spectre.Console.Cli" Version="0.45.1-preview.0.47" />
+      <PackageReference Include="Spectre.Console.Cli" Version="0.46.1-preview.0.20" />
     </ItemGroup>
 
 </Project>
